@@ -247,9 +247,9 @@ fun SettingProviderDetailPage(id: Uuid, vm: SettingVM = koinViewModel()) {
                 }
 
                 1 -> {
-                    SettingProviderModelPage(
-                        provider = provider,
-                        onEdit = onEdit
+                    ModelList(
+                        providerSetting = provider,
+                        onUpdateProvider = onEdit
                     )
                 }
 
@@ -261,93 +261,5 @@ fun SettingProviderDetailPage(id: Uuid, vm: SettingVM = koinViewModel()) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SettingProviderConfigPage(
-    provider: ProviderSetting,
-    onEdit: (ProviderSetting) -> Unit,
-    onDelete: () -> Unit
-) {
-    var internalProvider by remember(provider) { mutableStateOf(provider) }
-    val scope = rememberCoroutineScope()
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        ProviderConfigure(
-            provider = internalProvider,
-            onEdit = {
-                internalProvider = it
-            }
-        )
-
-        ProviderBalanceText(providerSetting = provider, style = MaterialTheme.typography.labelSmall)
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            ConnectionTester(
-                internalProvider = internalProvider,
-                scope = scope
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            if (!internalProvider.builtIn) {
-                IconButton(
-                    onClick = {
-                        showDeleteDialog = true
-                    },
-                ) {
-                    Icon(Lucide.Trash2, "Delete")
-                }
-            }
-
-            Button(
-                onClick = {
-                    onEdit(internalProvider)
-                }
-            ) {
-                Text(stringResource(R.string.setting_provider_page_save))
-            }
-        }
-    }
-
-    // Delete confirmation dialog
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = {
-                Text(stringResource(R.string.confirm_delete))
-            },
-            text = {
-                Text(stringResource(R.string.setting_provider_page_delete_dialog_text))
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text(stringResource(R.string.cancel))
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        onDelete()
-                    }
-                ) {
-                    Text(stringResource(R.string.delete))
-                }
-            }
-        )
     }
 }
