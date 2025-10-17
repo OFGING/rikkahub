@@ -119,13 +119,13 @@ class SettingsStore(
                     JsonInstant.decodeFromString(it)
                 } ?: emptyList(),
                 chatModelId = preferences[SELECT_MODEL]?.let { Uuid.parse(it) }
-                    ?: GEMINI_FLASH_LATEST_ID,
+                    ?: GEMINI_2_5_FLASH_ID,
                 titleModelId = preferences[TITLE_MODEL]?.let { Uuid.parse(it) }
-                    ?: GEMINI_FLASH_LATEST_ID,
+                    ?: GEMINI_2_5_FLASH_ID,
                 translateModeId = preferences[TRANSLATE_MODEL]?.let { Uuid.parse(it) }
-                    ?: GEMINI_FLASH_LATEST_ID,
+                    ?: GEMINI_2_5_FLASH_ID,
                 suggestionModelId = preferences[SUGGESTION_MODEL]?.let { Uuid.parse(it) }
-                    ?: GEMINI_FLASH_LATEST_ID,
+                    ?: GEMINI_2_5_FLASH_ID,
                 imageGenerationModelId = preferences[IMAGE_GENERATION_MODEL]?.let { Uuid.parse(it) } ?: Uuid.random(),
                 titlePrompt = preferences[TITLE_PROMPT] ?: DEFAULT_TITLE_PROMPT,
                 translatePrompt = preferences[TRANSLATION_PROMPT] ?: DEFAULT_TRANSLATION_PROMPT,
@@ -290,7 +290,7 @@ class SettingsStore(
 
 @Serializable
 data class Settings(
-    @Transient
+    @kotlinx.serialization.Transient
     val init: Boolean = false,
     val dynamicColor: Boolean = true,
     val themeId: String = PresetThemes[0].id,
