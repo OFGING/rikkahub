@@ -7,12 +7,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -574,57 +574,43 @@ private fun ConnectionTester(
     internalProvider: ProviderSetting,
     scope: CoroutineScope
 ) {
+    var showTestDialog by remember { mutableStateOf(false) }
     val providerManager = koinInject<ProviderManager>()
-    val toaster = LocalToaster.current
-    val context = LocalContext.current
-    var model by remember(internalProvider) {
-        mutableStateOf(internalProvider.models.firstOrNull { it.type == ModelType.CHAT })
-    }
-    var testState: UiState<String> by remember { mutableStateOf(UiState.Idle) }
-
     IconButton(
         onClick = {
-            if (model == null) {
-                toaster.show(context.getString(R.string.setting_provider_page_select_model_to_test))
-                return@IconButton
-            }
-            val provider = providerManager.getProviderByType(internalProvider)
-            scope.launch {
-                runCatching {
-                    testState = UiState.Loading
-                    provider.generateText(
-                        providerSetting = internalProvider,
-                        messages = listOf(
-                            UIMessage.user("hello")
-                        ),
-                        params = TextGenerationParams(
-                            model = model!!,
-                        )
-                    )
-                    testState = UiState.Success("Success")
-                }.onFailure {
-                    testState = UiState.Error(it)
-                }
-            }
+            showTestDialog = true
         }
     ) {
         Icon(Lucide.Cable, null)
     }
-
-    if (testState !is UiState.Idle) {
+    if (showTestDialog) {
+        var model by remember(internalProvider) {
+            mutableStateOf(internalProvider.models.firstOrNull { it.type == ModelType.CHAT })
+        }
+        var testState: UiState<String> by remember { mutableStateOf(UiState.Idle) }
         AlertDialog(
-            onDismissRequest = { testState = UiState.Idle },
-            title = { Text(stringResource(R.string.setting_provider_page_test_connection)) },
+            onDismissRequest = { showTestDialog = false },
+            title = {
+                Text(stringResource(R.string.setting_provider_page_test_connection))
+            },
             text = {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    ModelSelector(
+                        modelId = model?.id,
+                        providers = listOf(internalProvider),
+                        type = ModelType.CHAT,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        model = it
+                    }
                     when (testState) {
                         is UiState.Loading -> {
                             LinearWavyProgressIndicator()
-                            Text(stringResource(R.string.setting_provider_page_testing))
                         }
+
                         is UiState.Success -> {
                             Text(
                                 text = stringResource(R.string.setting_provider_page_test_success),
@@ -632,6 +618,7 @@ private fun ConnectionTester(
                                 color = MaterialTheme.extendColors.green6
                             )
                         }
+
                         is UiState.Error -> {
                             Text(
                                 text = (testState as UiState.Error).error.message ?: "Error",
@@ -639,15 +626,1060 @@ private fun ConnectionTester(
                                 maxLines = 10
                             )
                         }
-                        else -> {} // Should be caught by if-statement above
+
+                        else -> {}
                     }
                 }
             },
+            dismissButton = {
+                TextButton(onClick = { showTestDialog = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
             confirmButton = {
-                TextButton(onClick = { testState = UiState.Idle }) {
-                    Text(stringResource(R.string.confirm))
+
+                TextButton(
+                    onClick = {
+                        if (model == null) return@TextButton
+                        val provider = providerManager.getProviderByType(internalProvider)
+                        scope.launch {
+                            runCatching {
+                                testState = UiState.Loading
+                                provider.generateText(
+                                    providerSetting = internalProvider,
+                                    messages = listOf(
+                                        UIMessage.user("hello")
+                                    ),
+                                    params = TextGenerationParams(
+                                        model = model!!,
+                                    )
+                                )
+                                testState = UiState.Success("Success")
+                            }.onFailure {
+                                testState = UiState.Error(it)
+                            }
+                        }
+                    }
+                ) {
+                    Text(stringResource(R.string.setting_provider_page_test))
                 }
             }
         )
+    }
+}
+
+// All functions below are copied from SettingProviderDetailPage2.kt to fix compilation errors
+
+@Composable
+private fun ModelSettingsForm(
+    model: Model,
+    onModelChange: (Model) -> Unit,
+    isEdit: Boolean,
+    parentProvider: ProviderSetting? = null
+) {
+    val pagerState = rememberPagerState { 3 }
+    val scope = rememberCoroutineScope()
+
+    fun setModelId(id: String) {
+        val inputModality = ModelRegistry.MODEL_INPUT_MODALITIES.getData(id)
+        val outputModality = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(id)
+        val abilities = ModelRegistry.MODEL_ABILITIES.getData(id)
+        onModelChange(
+            model.copy(
+                modelId = id,
+                displayName = id.uppercase(),
+                inputModalities = inputModality,
+                outputModalities = outputModality,
+                abilities = abilities
+            )
+        )
+    }
+
+    Column {
+        SecondaryTabRow(
+            selectedTabIndex = pagerState.currentPage,
+            containerColor = Color.Transparent,
+        ) {
+            Tab(
+                selected = pagerState.currentPage == 0,
+                onClick = {
+                    scope.launch {
+                        pagerState.animateScrollToPage(0)
+                    }
+                },
+                text = { Text(stringResource(R.string.setting_provider_page_basic_settings)) }
+            )
+            Tab(
+                selected = pagerState.currentPage == 1,
+                onClick = {
+                    scope.launch {
+                        pagerState.animateScrollToPage(1)
+                    }
+                },
+                text = { Text(stringResource(R.string.setting_provider_page_advanced_settings)) }
+            )
+            Tab(
+                selected = pagerState.currentPage == 2,
+                onClick = {
+                    scope.launch {
+                        pagerState.animateScrollToPage(2)
+                    }
+                },
+                text = { Text(stringResource(R.string.setting_page_built_in_tools)) }
+            )
+        }
+
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            when (page) {
+                0 -> {
+                    // 基本设置页面
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 16.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        OutlinedTextField(
+                            value = model.modelId,
+                            onValueChange = {
+                                if (!isEdit) {
+                                    setModelId(it.trim())
+                                }
+                            },
+                            label = { Text(stringResource(R.string.setting_provider_page_model_id)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = {
+                                if (!isEdit) {
+                                    Text(stringResource(R.string.setting_provider_page_model_id_placeholder))
+                                }
+                            },
+                            enabled = !isEdit
+                        )
+
+                        OutlinedTextField(
+                            value = model.displayName,
+                            onValueChange = {
+                                onModelChange(model.copy(displayName = it.trim()))
+                            },
+                            label = { Text(stringResource(if (isEdit) R.string.setting_provider_page_model_name else R.string.setting_provider_page_model_display_name)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = {
+                                if (!isEdit) {
+                                    Text(stringResource(R.string.setting_provider_page_model_display_name_placeholder))
+                                }
+                            }
+                        )
+
+                        ModelTypeSelector(
+                            selectedType = model.type,
+                            onTypeSelected = {
+                                onModelChange(model.copy(type = it))
+                            }
+                        )
+
+                        ModelModalitySelector(
+                            model = model,
+                            inputModalities = model.inputModalities,
+                            onUpdateInputModalities = {
+                                onModelChange(model.copy(inputModalities = it))
+                            },
+                            outputModalities = model.outputModalities,
+                            onUpdateOutputModalities = {
+                                onModelChange(model.copy(outputModalities = it))
+                            }
+                        )
+
+                        if (model.type == ModelType.CHAT) {
+                            ModalAbilitySelector(
+                                abilities = model.abilities,
+                                onUpdateAbilities = {
+                                    onModelChange(model.copy(abilities = it))
+                                }
+                            )
+                        }
+                    }
+                }
+
+                1 -> {
+                    // 高级设置页面
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        ProviderOverrideSettings(
+                            providerOverride = model.providerOverwrite,
+                            onUpdateProviderOverride = { providerOverride ->
+                                onModelChange(model.copy(providerOverwrite = providerOverride))
+                            },
+                            parentProvider = parentProvider
+                        )
+
+                        CustomHeaders(
+                            headers = model.customHeaders,
+                            onUpdate = { headers ->
+                                onModelChange(model.copy(customHeaders = headers))
+                            }
+                        )
+
+                        CustomBodies(
+                            customBodies = model.customBodies,
+                            onUpdate = { bodies ->
+                                onModelChange(model.copy(customBodies = bodies))
+                            }
+                        )
+                    }
+                }
+
+                2 -> {
+                    // 内置工具页面
+                    BuiltInToolsSettings(
+                        tools = model.tools,
+                        onUpdateTools = { tools ->
+                            onModelChange(model.copy(tools = tools))
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddModelButton(
+    models: List<Model>,
+    selectedModels: List<Model>,
+    expanded: Boolean,
+    onAddModel: (Model) -> Unit,
+    onRemoveModel: (Model) -> Unit,
+    parentProvider: ProviderSetting
+) {
+    val dialogState = useEditState<Model> { onAddModel(it) }
+    val scope = rememberCoroutineScope()
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ModelPicker(
+            models = models,
+            selectedModels = selectedModels,
+            onModelSelected = { model ->
+                val inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(model.modelId)
+                val outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(model.modelId)
+                val abilities = ModelRegistry.MODEL_ABILITIES.getData(model.modelId)
+                onAddModel(
+                    model.copy(
+                        inputModalities = inputModalities,
+                        outputModalities = outputModalities,
+                        abilities = abilities
+                    )
+                )
+            },
+            onModelDeselected = { model ->
+                onRemoveModel(model)
+            }
+        )
+
+        Button(
+            onClick = {
+                dialogState.open(Model())
+            }
+        ) {
+            Row(
+                modifier = Modifier,
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Lucide.Plus,
+                    contentDescription = stringResource(R.string.setting_provider_page_add_model)
+                )
+                AnimatedVisibility(expanded) {
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(
+                        stringResource(R.string.setting_provider_page_add_new_model),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+            }
+        }
+    }
+
+    if (dialogState.isEditing) {
+        dialogState.currentState?.let { modelState ->
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+                onDismissRequest = {
+                    dialogState.dismiss()
+                },
+                sheetState = sheetState,
+                sheetGesturesEnabled = false,
+                dragHandle = {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                sheetState.hide()
+                                dialogState.dismiss()
+                            }
+                        }
+                    ) {
+                        Icon(Lucide.ChevronDown, null)
+                    }
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.95f)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(
+                        text = stringResource(R.string.setting_provider_page_add_model),
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        ModelSettingsForm(
+                            model = modelState,
+                            onModelChange = { dialogState.currentState = it },
+                            isEdit = false,
+                            parentProvider = parentProvider
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    ) {
+                        TextButton(
+                            onClick = {
+                                dialogState.dismiss()
+                            },
+                        ) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                        TextButton(
+                            onClick = {
+                                if (modelState.modelId.isNotBlank() && modelState.displayName.isNotBlank()) {
+                                    dialogState.confirm()
+                                }
+                            },
+                        ) {
+                            Text(stringResource(R.string.setting_provider_page_add))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModelPicker(
+    models: List<Model>,
+    selectedModels: List<Model>,
+    onModelSelected: (Model) -> Unit,
+    onModelDeselected: (Model) -> Unit
+) {
+    var showModal by remember { mutableStateOf(false) }
+    if (showModal) {
+        ModalBottomSheet(
+            onDismissRequest = { showModal = false },
+            sheetState = rememberModalBottomSheetState(
+                skipPartiallyExpanded = true
+            )
+        ) {
+            var filterText by remember { mutableStateOf("") }
+            val filterKeywords = filterText.split(" ").filter { it.isNotBlank() }
+            val filteredModels = models.fastFilter {
+                if (filterKeywords.isEmpty()) {
+                    true
+                } else {
+                    filterKeywords.all { keyword ->
+                        it.modelId.contains(keyword, ignoreCase = true) ||
+                                it.displayName.contains(keyword, ignoreCase = true)
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(500.dp)
+                    .padding(8.dp)
+                    .imePadding(),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(8.dp),
+                ) {
+                    items(filteredModels) {
+                        Card {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(
+                                    8.dp
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                            ) {
+                                AutoAIIcon(
+                                    it.modelId,
+                                    Modifier.size(32.dp)
+                                )
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(
+                                        4.dp
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(
+                                        text = it.modelId,
+                                        style = MaterialTheme.typography.titleSmall,
+                                    )
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                    ) {
+                                        val modelMeta = remember(it) {
+                                            it.copy(
+                                                inputModalities = ModelRegistry.MODEL_INPUT_MODALITIES.getData(it.modelId),
+                                                outputModalities = ModelRegistry.MODEL_OUTPUT_MODALITIES.getData(it.modelId),
+                                                abilities = ModelRegistry.MODEL_ABILITIES.getData(it.modelId),
+                                            )
+                                        }
+                                        ModelModalityTag(
+                                            model = modelMeta,
+                                        )
+                                        ModelAbilityTag(
+                                            model = modelMeta,
+                                        )
+                                    }
+                                }
+                                IconButton(
+                                    onClick = {
+                                        if (selectedModels.any { model -> model.modelId == it.modelId }) {
+                                            // 从selectedModels中计算出要删除的model，因为删除需要id匹配，而不是ModelId
+                                            onModelDeselected(selectedModels.firstOrNull { model -> model.modelId == it.modelId }
+                                                ?: it)
+                                        } else {
+                                            onModelSelected(it)
+                                        }
+                                    }
+                                ) {
+                                    if (selectedModels.any { model -> model.modelId == it.modelId }) {
+                                        Icon(Lucide.X, null)
+                                    } else {
+                                        Icon(Lucide.Plus, null)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = filterText,
+                    onValueChange = {
+                        filterText = it
+                    },
+                    label = { Text(stringResource(R.string.setting_provider_page_filter_placeholder)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = {
+                        Text(stringResource(R.string.setting_provider_page_filter_example))
+                    },
+                )
+            }
+        }
+    }
+    BadgedBox(
+        badge = {
+            if (models.isNotEmpty()) {
+                Badge {
+                    Text(models.size.toString())
+                }
+            }
+        }
+    ) {
+        IconButton(
+            onClick = {
+                showModal = true
+            }
+        ) {
+            Icon(Lucide.Boxes, null)
+        }
+    }
+}
+
+@Composable
+private fun ModelTypeSelector(
+    selectedType: ModelType,
+    onTypeSelected: (ModelType) -> Unit
+) {
+    Text(
+        stringResource(R.string.setting_provider_page_model_type),
+        style = MaterialTheme.typography.titleSmall
+    )
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        ModelType.entries.forEachIndexed { index, type ->
+            SegmentedButton(
+                shape = SegmentedButtonDefaults.itemShape(index, ModelType.entries.size),
+                label = {
+                    Text(
+                        text = stringResource(
+                            when (type) {
+                                ModelType.CHAT -> R.string.setting_provider_page_chat_model
+                                ModelType.EMBEDDING -> R.string.setting_provider_page_embedding_model
+                                ModelType.IMAGE -> R.string.setting_provider_page_image_model
+                            }
+                        )
+                    )
+                },
+                selected = selectedType == type,
+                onClick = { onTypeSelected(type) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModelModalitySelector(
+    model: Model,
+    inputModalities: List<Modality>,
+    onUpdateInputModalities: (List<Modality>) -> Unit,
+    outputModalities: List<Modality>,
+    onUpdateOutputModalities: (List<Modality>) -> Unit
+) {
+    if (model.type == ModelType.CHAT) {
+        Text(
+            stringResource(R.string.setting_provider_page_input_modality),
+            style = MaterialTheme.typography.titleSmall
+        )
+        MultiChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Modality.entries.forEachIndexed { index, modality ->
+                SegmentedButton(
+                    checked = modality in inputModalities,
+                    shape = SegmentedButtonDefaults.itemShape(index, Modality.entries.size),
+                    onCheckedChange = {
+                        if (it) {
+                            onUpdateInputModalities(inputModalities + modality)
+                        } else {
+                            onUpdateInputModalities(inputModalities - modality)
+                        }
+                    }
+                ) {
+                    Text(
+                        text = stringResource(
+                            when (modality) {
+                                Modality.TEXT -> R.string.setting_provider_page_text
+                                Modality.IMAGE -> R.string.setting_provider_page_image
+                            }
+                        )
+                    )
+                }
+            }
+        }
+
+        Text(
+            stringResource(R.string.setting_provider_page_output_modality),
+            style = MaterialTheme.typography.titleSmall
+        )
+        MultiChoiceSegmentedButtonRow(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Modality.entries.forEachIndexed { index, modality ->
+                SegmentedButton(
+                    checked = modality in outputModalities,
+                    shape = SegmentedButtonDefaults.itemShape(index, Modality.entries.size),
+                    onCheckedChange = {
+                        if (it) {
+                            onUpdateOutputModalities(outputModalities + modality)
+                        } else {
+                            onUpdateOutputModalities(outputModalities - modality)
+                        }
+                    }
+                ) {
+                    Text(
+                        text = stringResource(
+                            when (modality) {
+                                Modality.TEXT -> R.string.setting_provider_page_text
+                                Modality.IMAGE -> R.string.setting_provider_page_image
+                            }
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ModalAbilitySelector(
+    abilities: List<ModelAbility>,
+    onUpdateAbilities: (List<ModelAbility>) -> Unit
+) {
+    Text(
+        stringResource(R.string.setting_provider_page_abilities),
+        style = MaterialTheme.typography.titleSmall
+    )
+    MultiChoiceSegmentedButtonRow(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        ModelAbility.entries.forEachIndexed { index, ability ->
+            SegmentedButton(
+                checked = ability in abilities,
+                shape = SegmentedButtonDefaults.itemShape(index, ModelAbility.entries.size),
+                onCheckedChange = {
+                    if (it) {
+                        onUpdateAbilities(abilities + ability)
+                    } else {
+                        onUpdateAbilities(abilities - ability)
+                    }
+                },
+                label = {
+                    Text(
+                        text = stringResource(
+                            when (ability) {
+                                ModelAbility.TOOL -> R.string.setting_provider_page_tool
+                                ModelAbility.REASONING -> R.string.setting_provider_page_reasoning
+                            }
+                        )
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModelCard(
+    model: Model,
+    modifier: Modifier = Modifier,
+    onDelete: () -> Unit,
+    onEdit: (Model) -> Unit,
+    parentProvider: ProviderSetting
+) {
+    val dialogState = useEditState<Model> {
+        onEdit(it)
+    }
+    val swipeToDismissBoxState = rememberSwipeToDismissBoxState()
+    val scope = rememberCoroutineScope()
+
+
+    if (dialogState.isEditing) {
+        dialogState.currentState?.let { editingModel ->
+            val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ModalBottomSheet(
+                onDismissRequest = {
+                    dialogState.dismiss()
+                },
+                sheetState = sheetState,
+                sheetGesturesEnabled = false,
+                dragHandle = null,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.95f)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        IconButton(
+                            onClick = {
+                                scope.launch {
+                                    sheetState.hide()
+                                    dialogState.dismiss()
+                                }
+                            },
+                            modifier = Modifier.align(Alignment.CenterStart)
+                        ) {
+                            Icon(Lucide.X, null)
+                        }
+                        Text(
+                            text = stringResource(R.string.setting_provider_page_edit_model),
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.align(Alignment.Center),
+                        )
+                    }
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        ModelSettingsForm(
+                            model = editingModel,
+                            onModelChange = { dialogState.currentState = it },
+                            isEdit = true,
+                            parentProvider = parentProvider
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    ) {
+                        TextButton(
+                            onClick = {
+                                dialogState.dismiss()
+                            },
+                        ) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                        TextButton(
+                            onClick = {
+                                if (editingModel.displayName.isNotBlank()) {
+                                    dialogState.confirm()
+                                }
+                            },
+                        ) {
+                            Text(stringResource(R.string.confirm))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    SwipeToDismissBox(
+        state = swipeToDismissBoxState,
+        backgroundContent = {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        scope.launch {
+                            swipeToDismissBoxState.reset()
+                        }
+                    }
+                ) {
+                    Icon(Lucide.X, null)
+                }
+                FilledIconButton(
+                    onClick = {
+                        scope.launch {
+                            onDelete()
+                            swipeToDismissBoxState.reset()
+                        }
+                    }
+                ) {
+                    Icon(
+                        Lucide.Trash2,
+                        contentDescription = stringResource(R.string.chat_page_delete)
+                    )
+                }
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        gesturesEnabled = true,
+        modifier = modifier
+    ) {
+        OutlinedCard {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    shape = MaterialTheme.shapes.small,
+                ) {
+                    AutoAIIcon(
+                        name = model.modelId,
+                        modifier = Modifier.size(36.dp),
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = model.displayName,
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        if (model.providerOverwrite != null) {
+                            Tag(type = TagType.INFO) {
+                                Text(
+                                    model.providerOverwrite?.javaClass?.simpleName ?: model.providerOverwrite?.name
+                                    ?: "ProviderOverwrite"
+                                )
+                            }
+                        }
+                        ModelTypeTag(model = model)
+                        ModelModalityTag(model = model)
+                        ModelAbilityTag(model = model)
+                    }
+                }
+
+                // Edit button
+                IconButton(
+                    onClick = {
+                        dialogState.open(model.copy())
+                    }
+                ) {
+                    Icon(Lucide.Settings2, "Edit")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BuiltInToolsSettings(
+    tools: Set<BuiltInTools>,
+    onUpdateTools: (Set<BuiltInTools>) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.setting_page_built_in_tools),
+            style = MaterialTheme.typography.titleMedium
+        )
+
+        Text(
+            text = stringResource(R.string.setting_page_built_in_tools_desc),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        val availableTools = listOf(
+            BuiltInTools.Search to Pair(
+                stringResource(R.string.setting_page_built_in_tools_search),
+                stringResource(R.string.setting_page_built_in_tools_search_desc)
+            ),
+            BuiltInTools.UrlContext to Pair(
+                stringResource(R.string.setting_page_built_in_tools_url_context),
+                stringResource(R.string.setting_page_built_in_tools_url_context_desc)
+            )
+        )
+
+        availableTools.forEach { (tool, info) ->
+            val (title, description) = info
+            Card(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = tool in tools,
+                        onCheckedChange = { checked ->
+                            if (checked) {
+                                onUpdateTools(tools + tool)
+                            } else {
+                                onUpdateTools(tools - tool)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProviderOverrideSettings(
+    providerOverride: ProviderSetting?,
+    onUpdateProviderOverride: (ProviderSetting?) -> Unit,
+    parentProvider: ProviderSetting?
+) {
+    var showProviderConfig by remember { mutableStateOf(false) }
+    var editingProvider by remember { mutableStateOf<ProviderSetting?>(null) }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.setting_provider_page_provider_override),
+            style = MaterialTheme.typography.titleSmall
+        )
+
+        Text(
+            text = stringResource(R.string.setting_provider_page_provider_override_desc),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (providerOverride != null) {
+            OutlinedCard(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AutoAIIcon(
+                            providerOverride.name,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Text(
+                            text = "${providerOverride.name} (Override)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = {
+                                editingProvider = providerOverride
+                                showProviderConfig = true
+                            }
+                        ) {
+                            Icon(Lucide.Settings2, contentDescription = "Edit override")
+                        }
+                        IconButton(
+                            onClick = {
+                                onUpdateProviderOverride(null)
+                            }
+                        ) {
+                            Icon(Lucide.X, contentDescription = "Remove override")
+                        }
+                    }
+                }
+            }
+        } else {
+            Button(
+                onClick = {
+                    editingProvider = parentProvider?.copyProvider(
+                        id = Uuid.random(),
+                        builtIn = false,
+                        models = emptyList(), // 这里必须设置为空，不然会导致循环依赖JSON
+                        description = {},
+                    )
+                    showProviderConfig = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Lucide.Plus, contentDescription = null)
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(stringResource(R.string.setting_provider_page_add_provider_override))
+            }
+        }
+
+        // Provider configuration modal
+        if (showProviderConfig && editingProvider != null) {
+            ModalBottomSheet(
+                onDismissRequest = {
+                    showProviderConfig = false
+                    editingProvider = null
+                },
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+            ) {
+                var internalProvider by remember(editingProvider) { mutableStateOf(editingProvider!!) }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.9f)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.setting_provider_page_configure_provider_override),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        ProviderConfigure(
+                            provider = internalProvider,
+                            onEdit = { internalProvider = it }
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    ) {
+                        TextButton(
+                            onClick = {
+                                showProviderConfig = false
+                                editingProvider = null
+                            },
+                        ) {
+                            Text(stringResource(R.string.cancel))
+                        }
+                        TextButton(
+                            onClick = {
+                                onUpdateProviderOverride(internalProvider)
+                                showProviderConfig = false
+                                editingProvider = null
+                            },
+                        ) {
+                            Text(stringResource(R.string.setting_provider_page_save))
+                        }
+                    }
+                }
+            }
+        }
     }
 }
