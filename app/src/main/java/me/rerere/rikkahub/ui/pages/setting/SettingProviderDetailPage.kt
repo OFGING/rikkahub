@@ -248,8 +248,8 @@ fun SettingProviderDetailPage(id: Uuid, vm: SettingVM = koinViewModel()) {
 
                 1 -> {
                     SettingProviderModelPage(
-                        provider = provider,
-                        onEdit = onEdit
+                        providerSetting = provider,
+                        onUpdateProvider = onEdit
                     )
                 }
 
@@ -353,13 +353,113 @@ private fun SettingProviderConfigPage(
 
 @Composable
 private fun SettingProviderModelPage(
-    provider: ProviderSetting,
-    onEdit: (ProviderSetting) -> Unit
+    providerSetting: ProviderSetting,
+    onUpdateProvider: (ProviderSetting) -> Unit
 ) {
-    ModelList(
-        providerSetting = provider,
-        onUpdateProvider = onEdit
-    )
+    val providerManager = koinInject<ProviderManager>()
+    val modelList by produceState(emptyList(), providerSetting) {
+        runCatching {
+            value = providerManager.getProviderByType(providerSetting)
+                .listModels(providerSetting)
+                .sortedBy { it.modelId }
+                .toList()
+        }.onFailure {
+            it.printStackTrace()
+        }
+    }
+    var expanded by rememberSaveable { mutableStateOf(true) }
+    val lazyListState = rememberLazyListState()
+    val reorderableLazyListState = rememberReorderableLazyListState(lazyListState) { from, to ->
+        onUpdateProvider(providerSetting.moveMove(from.index, to.index))
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .floatingToolbarVerticalNestedScroll(
+                    expanded = expanded,
+                    onExpand = { expanded = true },
+                    onCollapse = { expanded = false },
+                ),
+            contentPadding = PaddingValues(16.dp) + PaddingValues(bottom = 128.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            state = lazyListState
+        ) {
+            // 模型列表
+            if (providerSetting.models.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillParentMaxHeight(0.8f)
+                            .fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.setting_provider_page_no_models),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = stringResource(R.string.setting_provider_page_add_models_hint),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            } else {
+                items(providerSetting.models, key = { it.id }) { item ->
+                    ReorderableItem(
+                        state = reorderableLazyListState,
+                        key = item.id
+                    ) { isDragging ->
+                        ModelCard(
+                            model = item,
+                            onDelete = {
+                                onUpdateProvider(providerSetting.delModel(item))
+                            },
+                            onEdit = { editedModel ->
+                                onUpdateProvider(providerSetting.editModel(editedModel))
+                            },
+                            parentProvider = providerSetting,
+                            modifier = Modifier
+                                .longPressDraggableHandle()
+                                .graphicsLayer {
+                                    if (isDragging) {
+                                        scaleX = 1.05f
+                                        scaleY = 1.05f
+                                    } else {
+                                        scaleX = 1f
+                                        scaleY = 1f
+                                    }
+                                },
+                        )
+                    }
+                }
+            }
+        }
+        HorizontalFloatingToolbar(
+            expanded = expanded,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = -ScreenOffset),
+        ) {
+            AddModelButton(
+                models = modelList,
+                selectedModels = providerSetting.models,
+                onAddModel = {
+                    onUpdateProvider(providerSetting.addModel(it))
+                },
+                onRemoveModel = {
+                    onUpdateProvider(providerSetting.delModel(it))
+                },
+                expanded = expanded,
+                parentProvider = providerSetting
+            )
+        }
+    }
 }
 
 @Composable
@@ -466,5 +566,88 @@ private fun SettingProviderProxyPage(
                 Text(stringResource(id = R.string.setting_provider_page_save))
             }
         }
+    }
+}
+
+@Composable
+private fun ConnectionTester(
+    internalProvider: ProviderSetting,
+    scope: CoroutineScope
+) {
+    val providerManager = koinInject<ProviderManager>()
+    val toaster = LocalToaster.current
+    val context = LocalContext.current
+    var model by remember(internalProvider) {
+        mutableStateOf(internalProvider.models.firstOrNull { it.type == ModelType.CHAT })
+    }
+    var testState: UiState<String> by remember { mutableStateOf(UiState.Idle) }
+
+    IconButton(
+        onClick = {
+            if (model == null) {
+                toaster.show(context.getString(R.string.setting_provider_page_select_model_to_test))
+                return@IconButton
+            }
+            val provider = providerManager.getProviderByType(internalProvider)
+            scope.launch {
+                runCatching {
+                    testState = UiState.Loading
+                    provider.generateText(
+                        providerSetting = internalProvider,
+                        messages = listOf(
+                            UIMessage.user("hello")
+                        ),
+                        params = TextGenerationParams(
+                            model = model!!,
+                        )
+                    )
+                    testState = UiState.Success("Success")
+                }.onFailure {
+                    testState = UiState.Error(it)
+                }
+            }
+        }
+    ) {
+        Icon(Lucide.Cable, null)
+    }
+
+    if (testState !is UiState.Idle) {
+        AlertDialog(
+            onDismissRequest = { testState = UiState.Idle },
+            title = { Text(stringResource(R.string.setting_provider_page_test_connection)) },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    when (testState) {
+                        is UiState.Loading -> {
+                            LinearWavyProgressIndicator()
+                            Text(stringResource(R.string.setting_provider_page_testing))
+                        }
+                        is UiState.Success -> {
+                            Text(
+                                text = stringResource(R.string.setting_provider_page_test_success),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.extendColors.green6
+                            )
+                        }
+                        is UiState.Error -> {
+                            Text(
+                                text = (testState as UiState.Error).error.message ?: "Error",
+                                color = MaterialTheme.extendColors.red6,
+                                maxLines = 10
+                            )
+                        }
+                        else -> {} // Should be caught by if-statement above
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { testState = UiState.Idle }) {
+                    Text(stringResource(R.string.confirm))
+                }
+            }
+        )
     }
 }
