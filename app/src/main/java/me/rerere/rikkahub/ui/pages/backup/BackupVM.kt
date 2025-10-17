@@ -95,53 +95,6 @@ class BackupVM(
         val settingsObj = jsonElements["settings"]?.jsonObject
         if (settingsObj != null) {
             settingsObj["providers"]?.jsonObject?.let { providers ->
-                providers["openai"]?.jsonObject?.let { openai ->
-                    val apiHost = openai["apiHost"]?.jsonPrimitive?.contentOrNull ?: "https://api.openai.com"
-                    val apiKey = openai["apiKey"]?.jsonPrimitive?.contentOrNull ?: ""
-                    val models = openai["models"]?.jsonArray?.map { element ->
-                        val modelId = element.jsonObject["modelId"]?.jsonPrimitive?.contentOrNull ?: ""
-                        val capabilities =
-                            element.jsonObject["capabilities"]?.jsonArray?.map { it.jsonPrimitive.contentOrNull }
-                                ?: emptyList()
-                        Model(
-                            modelId = modelId,
-                            displayName = modelId,
-                            inputModalities = buildList {
-                                if (capabilities.contains("vision")) {
-                                    add(Modality.IMAGE)
-                                }
-                            },
-                            abilities = buildList {
-                                if (capabilities.contains("tool_use")) {
-                                    add(ModelAbility.TOOL)
-                                }
-                                if (capabilities.contains("reasoning")) {
-                                    add(ModelAbility.REASONING)
-                                }
-                            }
-                        )
-                    } ?: emptyList()
-                    if (apiKey.isNotBlank()) importProviders.add(
-                        ProviderSetting.OpenAI(
-                            name = "OpenAI",
-                            baseUrl = "$apiHost/v1",
-                            apiKey = apiKey,
-                            models = models,
-                        )
-                    )
-                }
-                providers["claude"]?.jsonObject?.let { claude ->
-                    val apiHost =
-                        claude["apiHost"]?.jsonPrimitive?.contentOrNull ?: "https://api.anthropic.com"
-                    val apiKey = claude["apiKey"]?.jsonPrimitive?.contentOrNull ?: ""
-                    if (apiKey.isNotBlank()) importProviders.add(
-                        ProviderSetting.Claude(
-                            name = "Claude",
-                            baseUrl = "${apiHost}/v1",
-                            apiKey = apiKey,
-                        )
-                    )
-                }
                 providers["gemini"]?.jsonObject?.let { gemini ->
                     val apiHost = gemini["apiHost"]?.jsonPrimitive?.contentOrNull
                         ?: "https://generativelanguage.googleapis.com"
