@@ -1,8 +1,6 @@
 package me.rerere.ai.provider
 
-import me.rerere.ai.provider.providers.ClaudeProvider
 import me.rerere.ai.provider.providers.GoogleProvider
-import me.rerere.ai.provider.providers.OpenAIProvider
 import okhttp3.OkHttpClient
 
 /**
@@ -14,9 +12,7 @@ class ProviderManager(client: OkHttpClient) {
 
     init {
         // 注册默认Provider
-        registerProvider("openai", OpenAIProvider(client))
         registerProvider("google", GoogleProvider(client))
-        registerProvider("claude", ClaudeProvider(client))
     }
 
     /**
@@ -48,9 +44,7 @@ class ProviderManager(client: OkHttpClient) {
     fun <T : ProviderSetting> getProviderByType(setting: T): Provider<T> {
         @Suppress("UNCHECKED_CAST")
         return when (setting) {
-            is ProviderSetting.OpenAI -> getProvider("openai")
             is ProviderSetting.Google -> getProvider("google")
-            is ProviderSetting.Claude -> getProvider("claude")
         } as Provider<T>
     }
 }
