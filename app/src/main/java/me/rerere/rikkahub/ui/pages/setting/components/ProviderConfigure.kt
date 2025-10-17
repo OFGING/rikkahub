@@ -17,12 +17,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.dokar.sonner.ToastType
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.rikkahub.R
-import me.rerere.rikkahub.ui.context.LocalToaster
 import me.rerere.rikkahub.ui.theme.JetbrainsMono
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import kotlin.reflect.KClass
 import kotlin.reflect.full.primaryConstructor
 
@@ -64,16 +61,8 @@ fun ProviderConfigure(
 
         // Provider Configure
         when (provider) {
-            is ProviderSetting.OpenAI -> {
-                ProviderConfigureOpenAI(provider, onEdit)
-            }
-
             is ProviderSetting.Google -> {
                 ProviderConfigureGoogle(provider, onEdit)
-            }
-
-            is ProviderSetting.Claude -> {
-                ProviderConfigureClaude(provider, onEdit)
             }
         }
     }
@@ -81,160 +70,12 @@ fun ProviderConfigure(
 
 fun ProviderSetting.convertTo(type: KClass<out ProviderSetting>): ProviderSetting {
     val apiKey = when (this) {
-        is ProviderSetting.OpenAI -> this.apiKey
         is ProviderSetting.Google -> this.apiKey
-        is ProviderSetting.Claude -> this.apiKey
     }
     val newProvider = type.primaryConstructor!!.callBy(emptyMap())
     return when (newProvider) {
-        is ProviderSetting.OpenAI -> newProvider.copy(apiKey = apiKey)
         is ProviderSetting.Google -> newProvider.copy(apiKey = apiKey)
-        is ProviderSetting.Claude -> newProvider.copy(apiKey = apiKey)
     }
-}
-
-@Composable
-private fun ColumnScope.ProviderConfigureOpenAI(
-    provider: ProviderSetting.OpenAI,
-    onEdit: (provider: ProviderSetting.OpenAI) -> Unit
-) {
-    val toaster = LocalToaster.current
-
-    provider.description()
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(stringResource(id = R.string.setting_provider_page_enable), modifier = Modifier.weight(1f))
-        Checkbox(
-            checked = provider.enabled,
-            onCheckedChange = {
-                onEdit(provider.copy(enabled = it))
-            }
-        )
-    }
-
-    OutlinedTextField(
-        value = provider.name,
-        onValueChange = {
-            onEdit(provider.copy(name = it.trim()))
-        },
-        label = {
-            Text(stringResource(id = R.string.setting_provider_page_name))
-        },
-        modifier = Modifier.fillMaxWidth(),
-    )
-
-    OutlinedTextField(
-        value = provider.apiKey,
-        onValueChange = {
-            onEdit(provider.copy(apiKey = it.trim()))
-        },
-        label = {
-            Text(stringResource(id = R.string.setting_provider_page_api_key))
-        },
-        modifier = Modifier.fillMaxWidth(),
-        maxLines = 3,
-    )
-
-    OutlinedTextField(
-        value = provider.baseUrl,
-        onValueChange = {
-            onEdit(provider.copy(baseUrl = it.trim()))
-        },
-        label = {
-            Text(stringResource(id = R.string.setting_provider_page_api_base_url))
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    if (!provider.useResponseApi) {
-        OutlinedTextField(
-            value = provider.chatCompletionsPath,
-            onValueChange = {
-                onEdit(provider.copy(chatCompletionsPath = it.trim()))
-            },
-            label = {
-                Text(stringResource(id = R.string.setting_provider_page_api_path))
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !provider.builtIn
-        )
-    }
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(stringResource(id = R.string.setting_provider_page_response_api), modifier = Modifier.weight(1f))
-        val responseAPIWarning = stringResource(id = R.string.setting_provider_page_response_api_warning)
-        Checkbox(
-            checked = provider.useResponseApi,
-            onCheckedChange = {
-                onEdit(provider.copy(useResponseApi = it))
-
-                if(it && provider.baseUrl.toHttpUrlOrNull()?.host != "api.openai.com") {
-                    toaster.show(
-                        message = responseAPIWarning,
-                        type = ToastType.Warning
-                    )
-                }
-            }
-        )
-    }
-}
-
-@Composable
-private fun ColumnScope.ProviderConfigureClaude(
-    provider: ProviderSetting.Claude,
-    onEdit: (provider: ProviderSetting.Claude) -> Unit
-) {
-    provider.description()
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(stringResource(id = R.string.setting_provider_page_enable), modifier = Modifier.weight(1f))
-        Checkbox(
-            checked = provider.enabled,
-            onCheckedChange = {
-                onEdit(provider.copy(enabled = it))
-            }
-        )
-    }
-
-    OutlinedTextField(
-        value = provider.name,
-        onValueChange = {
-            onEdit(provider.copy(name = it.trim()))
-        },
-        label = {
-            Text(stringResource(id = R.string.setting_provider_page_name))
-        },
-        modifier = Modifier.fillMaxWidth(),
-        maxLines = 3,
-    )
-
-    OutlinedTextField(
-        value = provider.apiKey,
-        onValueChange = {
-            onEdit(provider.copy(apiKey = it.trim()))
-        },
-        label = {
-            Text(stringResource(id = R.string.setting_provider_page_api_key))
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
-
-    OutlinedTextField(
-        value = provider.baseUrl,
-        onValueChange = {
-            onEdit(provider.copy(baseUrl = it.trim()))
-        },
-        label = {
-            Text(stringResource(id = R.string.setting_provider_page_api_base_url))
-        },
-        modifier = Modifier.fillMaxWidth()
-    )
 }
 
 @Composable
