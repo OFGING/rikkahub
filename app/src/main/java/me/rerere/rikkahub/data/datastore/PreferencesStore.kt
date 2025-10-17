@@ -119,13 +119,13 @@ class SettingsStore(
                     JsonInstant.decodeFromString(it)
                 } ?: emptyList(),
                 chatModelId = preferences[SELECT_MODEL]?.let { Uuid.parse(it) }
-                    ?: SILICONFLOW_QWEN3_8B_ID,
+                    ?: GEMINI_FLASH_LATEST_ID,
                 titleModelId = preferences[TITLE_MODEL]?.let { Uuid.parse(it) }
-                    ?: SILICONFLOW_QWEN3_8B_ID,
+                    ?: GEMINI_FLASH_LATEST_ID,
                 translateModeId = preferences[TRANSLATE_MODEL]?.let { Uuid.parse(it) }
-                    ?: SILICONFLOW_QWEN3_8B_ID,
+                    ?: GEMINI_FLASH_LATEST_ID,
                 suggestionModelId = preferences[SUGGESTION_MODEL]?.let { Uuid.parse(it) }
-                    ?: SILICONFLOW_QWEN3_8B_ID,
+                    ?: GEMINI_FLASH_LATEST_ID,
                 imageGenerationModelId = preferences[IMAGE_GENERATION_MODEL]?.let { Uuid.parse(it) } ?: Uuid.random(),
                 titlePrompt = preferences[TITLE_PROMPT] ?: DEFAULT_TITLE_PROMPT,
                 translatePrompt = preferences[TRANSLATION_PROMPT] ?: DEFAULT_TRANSLATION_PROMPT,
@@ -205,15 +205,7 @@ class SettingsStore(
             settings.copy(
                 providers = settings.providers.distinctBy { it.id }.map { provider ->
                     when (provider) {
-                        is ProviderSetting.OpenAI -> provider.copy(
-                            models = provider.models.distinctBy { model -> model.id }
-                        )
-
                         is ProviderSetting.Google -> provider.copy(
-                            models = provider.models.distinctBy { model -> model.id }
-                        )
-
-                        is ProviderSetting.Claude -> provider.copy(
                             models = provider.models.distinctBy { model -> model.id }
                         )
                     }
