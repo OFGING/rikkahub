@@ -231,3 +231,217 @@ fun SettingTTSPage(vm: SettingVM = koinViewModel()) {
         }
     }
 }
+
+@Composable
+private fun AddTTSProviderButton(onAdd: (TTSProviderSetting) -> Unit) {
+    var showBottomSheet by remember { mutableStateOf(false) }
+    var currentProvider: TTSProviderSetting by remember { mutableStateOf(TTSProviderSetting.SystemTTS()) }
+
+    IconButton(
+        onClick = {
+            currentProvider = TTSProviderSetting.SystemTTS()
+            showBottomSheet = true
+        }
+    ) {
+        Icon(Lucide.Plus, stringResource(R.string.setting_tts_page_add_provider_content_description))
+    }
+
+    if (showBottomSheet) {
+        val bottomSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = {
+                showBottomSheet = false
+            },
+            sheetState = bottomSheetState,
+            dragHandle = {
+                BottomSheetDefaults.DragHandle()
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .fillMaxHeight(0.8f),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.setting_tts_page_add_provider),
+                    style = MaterialTheme.typography.headlineSmall
+                )
+
+                TTSProviderConfigure(
+                    setting = currentProvider,
+                    onValueChange = { newState ->
+                        currentProvider = newState
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextButton(
+                        onClick = {
+                            showBottomSheet = false
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(stringResource(R.string.cancel))
+                    }
+
+                    TextButton(
+                        onClick = {
+                            onAdd(currentProvider)
+                            showBottomSheet = false
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(stringResource(R.string.setting_tts_page_add))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TTSProviderItem(
+    provider: TTSProviderSetting,
+    modifier: Modifier = Modifier,
+    isSelected: Boolean = false,
+    dragHandle: @Composable () -> Unit,
+    onSelect: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showDropdownMenu by remember { mutableStateOf(false) }
+    val tts = LocalTTSState.current
+    val isSpeaking by tts.isSpeaking.collectAsState()
+    val isAvailable by tts.isAvailable.collectAsState()
+
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceColorAtElevation(4.dp)
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AutoAIIcon(
+                    name = provider.name.ifEmpty { stringResource(R.string.setting_tts_page_default_name) },
+                    modifier = Modifier.size(32.dp)
+                )
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = provider.name.ifEmpty { stringResource(R.string.setting_tts_page_default_name) },
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurface
+                        }
+                    )
+
+                    Text(
+                        text = when (provider) {
+                            is TTSProviderSetting.Gemini -> stringResource(R.string.setting_tts_page_provider_gemini)
+                            is TTSProviderSetting.SystemTTS -> stringResource(R.string.setting_tts_page_provider_system)
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                RadioButton(
+                    selected = isSelected,
+                    onClick = onSelect
+                )
+
+                dragHandle()
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 状态标签
+                if (isSelected) {
+                    Tag(type = TagType.SUCCESS) {
+                        Text(stringResource(R.string.setting_tts_page_selected))
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // TTS测试播放按钮
+                if (isSelected && isAvailable) {
+                    val testText = stringResource(R.string.setting_tts_page_test_text)
+                    IconButton(
+                        onClick = {
+                            if (!isSpeaking) {
+                                tts.speak(testText)
+                            } else {
+                                tts.stop()
+                            }
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (isSpeaking) Lucide.CircleStop else Lucide.Volume2,
+                            contentDescription = if (isSpeaking) stringResource(R.string.stop) else stringResource(R.string.test_tts),
+                            tint = if (isSpeaking) MaterialTheme.colorScheme.error else LocalContentColor.current
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = { showDropdownMenu = true }
+                ) {
+                    Icon(
+                        imageVector = Lucide.Settings2,
+                        contentDescription = stringResource(R.string.setting_tts_page_more_options_content_description)
+                    )
+                    DropdownMenu(
+                        expanded = showDropdownMenu,
+                        onDismissRequest = { showDropdownMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.edit)) },
+                            onClick = {
+                                showDropdownMenu = false
+                                onEdit()
+                            },
+                            leadingIcon = {
+                                Icon(Lucide.Pencil, contentDescription = null)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.delete)) },
+                            onClick = {
+                                showDropdownMenu = false
+                                onDelete()
+                            },
+                            leadingIcon = {
+                                Icon(Lucide.Trash2, contentDescription = null)
+                            },
+                            enabled = provider.id != DEFAULT_SYSTEM_TTS_ID
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
