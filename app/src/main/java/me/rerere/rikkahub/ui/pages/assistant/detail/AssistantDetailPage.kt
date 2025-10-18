@@ -37,9 +37,7 @@ import kotlinx.coroutines.launch
 import me.rerere.ai.provider.ModelType
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.rikkahub.R
-import me.rerere.rikkahub.data.ai.mcp.McpServerConfig
 import me.rerere.rikkahub.data.model.Assistant
-import me.rerere.rikkahub.ui.components.ai.McpPicker
 import me.rerere.rikkahub.ui.components.ai.ModelSelector
 import me.rerere.rikkahub.ui.components.ai.ReasoningButton
 import me.rerere.rikkahub.ui.components.nav.BackButton
@@ -78,7 +76,6 @@ fun AssistantDetailPage(id: String) {
         stringResource(R.string.assistant_page_tab_prompt),
         stringResource(R.string.assistant_page_tab_memory),
         stringResource(R.string.assistant_page_tab_request),
-        stringResource(R.string.assistant_page_tab_mcp),
         stringResource(R.string.assistant_page_tab_local_tools)
     )
     val pagerState = rememberPagerState { tabs.size }
@@ -164,16 +161,6 @@ fun AssistantDetailPage(id: String) {
                     }
 
                     4 -> {
-                        AssistantMcpSettings(
-                            assistant = assistant,
-                            onUpdate = {
-                                onUpdate(it)
-                            },
-                            mcpServerConfigs = mcpServerConfigs
-                        )
-                    }
-
-                    5 -> {
                         AssistantLocalToolSubPage(
                             assistant = assistant,
                             onUpdate = { onUpdate(it) }
@@ -592,20 +579,3 @@ private fun AssistantCustomRequestSettings(
         )
     }
 }
-
-@Composable
-private fun AssistantMcpSettings(
-    assistant: Assistant,
-    onUpdate: (Assistant) -> Unit,
-    mcpServerConfigs: List<McpServerConfig>
-) {
-    McpPicker(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        assistant = assistant,
-        servers = mcpServerConfigs,
-        onUpdateAssistant = onUpdate,
-    )
-}
-
