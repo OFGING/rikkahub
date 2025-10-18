@@ -62,7 +62,6 @@ import me.rerere.rikkahub.ui.pages.history.HistoryPage
 import me.rerere.rikkahub.ui.pages.imggen.ImageGenPage
 import me.rerere.rikkahub.ui.pages.menu.MenuPage
 import me.rerere.rikkahub.ui.pages.setting.SettingDisplayPage
-import me.rerere.rikkahub.ui.pages.setting.SettingMcpPage
 import me.rerere.rikkahub.ui.pages.setting.SettingModelPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
 import me.rerere.rikkahub.ui.pages.setting.SettingProviderDetailPage
@@ -272,10 +271,6 @@ class RouteActivity : ComponentActivity() {
                         SettingTTSPage()
                     }
 
-                    composable<Screen.SettingMcp> {
-                        SettingMcpPage()
-                    }
-
                     composable<Screen.Developer> {
                         DeveloperPage()
                     }
@@ -340,9 +335,6 @@ sealed interface Screen {
 
     @Serializable
     data object SettingTTS : Screen
-
-    @Serializable
-    data object SettingMcp : Screen
 
     @Serializable
     data object Developer : Screen
