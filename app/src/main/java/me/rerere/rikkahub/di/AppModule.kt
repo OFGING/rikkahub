@@ -54,8 +54,7 @@ val appModule = module {
             generationHandler = get(),
             templateTransformer = get(),
             providerManager = get(),
-            localTools = get(),
-            mcpManager = get()
+            localTools = get()
         )
     }
 }
