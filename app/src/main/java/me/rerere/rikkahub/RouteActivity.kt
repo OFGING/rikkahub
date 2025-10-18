@@ -61,9 +61,7 @@ import me.rerere.rikkahub.ui.pages.developer.DeveloperPage
 import me.rerere.rikkahub.ui.pages.history.HistoryPage
 import me.rerere.rikkahub.ui.pages.imggen.ImageGenPage
 import me.rerere.rikkahub.ui.pages.menu.MenuPage
-import me.rerere.rikkahub.ui.pages.setting.SettingAboutPage
 import me.rerere.rikkahub.ui.pages.setting.SettingDisplayPage
-import me.rerere.rikkahub.ui.pages.setting.SettingDonatePage
 import me.rerere.rikkahub.ui.pages.setting.SettingMcpPage
 import me.rerere.rikkahub.ui.pages.setting.SettingModelPage
 import me.rerere.rikkahub.ui.pages.setting.SettingPage
@@ -266,10 +264,6 @@ class RouteActivity : ComponentActivity() {
                         SettingModelPage()
                     }
 
-                    composable<Screen.SettingAbout> {
-                        SettingAboutPage()
-                    }
-
                     composable<Screen.SettingSearch> {
                         SettingSearchPage()
                     }
@@ -280,10 +274,6 @@ class RouteActivity : ComponentActivity() {
 
                     composable<Screen.SettingMcp> {
                         SettingMcpPage()
-                    }
-
-                    composable<Screen.SettingDonate> {
-                        SettingDonatePage()
                     }
 
                     composable<Screen.Developer> {
@@ -346,9 +336,6 @@ sealed interface Screen {
     data object SettingModels : Screen
 
     @Serializable
-    data object SettingAbout : Screen
-
-    @Serializable
     data object SettingSearch : Screen
 
     @Serializable
@@ -356,9 +343,6 @@ sealed interface Screen {
 
     @Serializable
     data object SettingMcp : Screen
-
-    @Serializable
-    data object SettingDonate : Screen
 
     @Serializable
     data object Developer : Screen
