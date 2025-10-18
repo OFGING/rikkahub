@@ -46,7 +46,6 @@ import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.MessageCircleWarning
 import com.composables.icons.lucide.Monitor
 import com.composables.icons.lucide.SunMoon
-import com.composables.icons.lucide.Terminal
 import com.composables.icons.lucide.Volume2
 import me.rerere.rikkahub.R
 import me.rerere.rikkahub.Screen
@@ -211,16 +210,6 @@ fun SettingPage(vm: SettingVM = koinViewModel()) {
                     description = { Text(stringResource(R.string.setting_page_tts_service_desc)) },
                     icon = { Icon(Lucide.Volume2, "TTS") },
                     link = Screen.SettingTTS
-                )
-            }
-
-            item {
-                SettingItem(
-                    navController = navController,
-                    title = { Text(stringResource(R.string.setting_page_mcp)) },
-                    description = { Text(stringResource(R.string.setting_page_mcp_desc)) },
-                    icon = { Icon(Lucide.Terminal, "MCP") },
-                    link = Screen.SettingMcp
                 )
             }
 
