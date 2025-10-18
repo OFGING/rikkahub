@@ -61,7 +61,6 @@ fun AssistantDetailPage(id: String) {
     )
     val scope = rememberCoroutineScope()
 
-    val mcpServerConfigs by vm.mcpServerConfigs.collectAsStateWithLifecycle()
     val assistant by vm.assistant.collectAsStateWithLifecycle()
     val memories by vm.memories.collectAsStateWithLifecycle()
     val providers by vm.providers.collectAsStateWithLifecycle()
