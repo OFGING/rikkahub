@@ -14,7 +14,6 @@ import me.rerere.rikkahub.data.api.RikkaHubAPI
 import me.rerere.rikkahub.data.datastore.SettingsStore
 import me.rerere.rikkahub.data.db.AppDatabase
 import me.rerere.rikkahub.data.db.Migration_6_7
-import me.rerere.rikkahub.data.ai.mcp.McpManager
 import me.rerere.rikkahub.data.sync.WebdavSync
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -61,8 +60,6 @@ val dataSourceModule = module {
     single {
         get<AppDatabase>().genMediaDao()
     }
-
-    single { McpManager(settingsStore = get(), appScope = get()) }
 
     single {
         GenerationHandler(
