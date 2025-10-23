@@ -33,6 +33,7 @@ import me.rerere.ai.provider.Provider
 import me.rerere.ai.provider.ProviderSetting
 import me.rerere.ai.provider.TextGenerationParams
 import me.rerere.ai.provider.providers.vertex.ServiceAccountTokenProvider
+import me.rerere.ai.registry.ModelRegistry
 import me.rerere.ai.ui.ImageAspectRatio
 import me.rerere.ai.ui.ImageGenerationItem
 import me.rerere.ai.ui.ImageGenerationResult
@@ -363,15 +364,16 @@ class GoogleProvider(private val client: OkHttpClient) : Provider<ProviderSettin
                 put("thinkingConfig", buildJsonObject {
                     put("includeThoughts", true)
 
-                    val isGeminiPro =
-                        params.model.modelId.contains(Regex("2\\.5.*pro", RegexOption.IGNORE_CASE))
+                    // Check if the model is one of the designated reasoning models that can't have thinking disabled.
+                    val isAdvancedReasoningModel = ModelRegistry.REASONING_MODELS.match(params.model.modelId)
 
                     when (params.thinkingBudget) {
-                        null, -1 -> {} // 如果是自动，不设置thinkingBudget参数
+                        null, -1 -> {} // auto, do nothing
 
                         0 -> {
-                            // disable thinking if not gemini pro
-                            if (!isGeminiPro) {
+                            // For models like Gemini 2.5 Pro, thinking cannot be disabled.
+                            // For others, a budget of 0 disables thinking.
+                            if (!isAdvancedReasoningModel) {
                                 put("thinkingBudget", 0)
                                 put("includeThoughts", false)
                             }
@@ -444,23 +446,19 @@ class GoogleProvider(private val client: OkHttpClient) : Provider<ProviderSettin
         putJsonArray("safetySettings") {
             add(buildJsonObject {
                 put("category", "HARM_CATEGORY_HARASSMENT")
-                put("threshold", "OFF")
+                put("threshold", "BLOCK_NONE")
             })
             add(buildJsonObject {
                 put("category", "HARM_CATEGORY_HATE_SPEECH")
-                put("threshold", "OFF")
+                put("threshold", "BLOCK_NONE")
             })
             add(buildJsonObject {
                 put("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT")
-                put("threshold", "OFF")
+                put("threshold", "BLOCK_NONE")
             })
             add(buildJsonObject {
                 put("category", "HARM_CATEGORY_DANGEROUS_CONTENT")
-                put("threshold", "OFF")
-            })
-            add(buildJsonObject {
-                put("category", "HARM_CATEGORY_CIVIC_INTEGRITY")
-                put("threshold", "OFF")
+                put("threshold", "BLOCK_NONE")
             })
         }
     }.mergeCustomBody(params.customBody)
